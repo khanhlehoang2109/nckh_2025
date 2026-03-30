@@ -10,6 +10,7 @@ from torch.utils.data._utils.collate import default_collate
 from data_loaders.humanml.utils.get_opt import get_opt
 
 # import spacy
+MIN_STD_THRESHOLD = 1e-6
 
 def collate_fn(batch):
     batch.sort(key=lambda x: x[3], reverse=True)
@@ -303,7 +304,7 @@ class HumanML3D(data.Dataset):
         var = sum_sq_vec / total_frames - np.square(mean)
         var = np.maximum(var, 1e-8)
         std = np.sqrt(var)
-        std[std < 1e-6] = 1.0
+        std[std < MIN_STD_THRESHOLD] = 1.0
         return mean.astype(np.float32), std.astype(np.float32)
 
 # A wrapper class for t2m original dataset for MDM purposes
