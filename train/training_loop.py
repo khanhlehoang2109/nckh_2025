@@ -66,7 +66,10 @@ class TrainLoop:
         self.resume_epoch = 0
         
         self.data = data
-        self.val_data = get_dataset_loader(name=args.dataset, batch_size=args.batch_size, num_frames=args.num_frames, split='val')
+        self.val_data = get_dataset_loader(
+            name=args.dataset, batch_size=args.batch_size, num_frames=args.num_frames,
+            split='val', data_dir=args.data_dir
+        )
         
         self.batch_size = args.batch_size
         self.microbatch = args.batch_size  # deprecating this option
@@ -116,13 +119,15 @@ class TrainLoop:
         if args.eval_during_training:
             mm_num_samples = 0  # mm is super slow hence we won't run it during training
             mm_num_repeats = 0  # mm is super slow hence we won't run it during training
-            gen_loader = get_dataset_loader(name=args.dataset, batch_size=args.eval_batch_size, num_frames=None,
-                                            split=args.eval_split,
-                                            hml_mode='eval')
+            gen_loader = get_dataset_loader(
+                name=args.dataset, batch_size=args.eval_batch_size, num_frames=None,
+                split=args.eval_split, hml_mode='eval', data_dir=args.data_dir
+            )
 
-            self.eval_gt_data = get_dataset_loader(name=args.dataset, batch_size=args.eval_batch_size, num_frames=None,
-                                                   split=args.eval_split,
-                                                   hml_mode='gt')
+            self.eval_gt_data = get_dataset_loader(
+                name=args.dataset, batch_size=args.eval_batch_size, num_frames=None,
+                split=args.eval_split, hml_mode='gt', data_dir=args.data_dir
+            )
             self.eval_wrapper = EvaluatorMDMWrapper(args.dataset, dist_util.dev())
             self.eval_data = {
                 'test': lambda: eval_humanml.get_mdm_loader(

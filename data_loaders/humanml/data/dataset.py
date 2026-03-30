@@ -203,7 +203,7 @@ class TextOnlyDataset(data.Dataset):
 
 # A wrapper class for t2m original dataset for MDM purposes
 class HumanML3D(data.Dataset):
-    def __init__(self, mode, datapath='./dataset/humanml_opt.txt', split="train", **kwargs):
+    def __init__(self, mode, datapath='./dataset/humanml_opt.txt', split="train", data_root=None, **kwargs):
         self.mode = mode
         
         self.dataset_name = 't2m'
@@ -220,6 +220,10 @@ class HumanML3D(data.Dataset):
         opt.model_dir = pjoin(abs_base_path, opt.model_dir)
         opt.checkpoints_dir = pjoin(abs_base_path, opt.checkpoints_dir)
         opt.data_root = pjoin(abs_base_path, opt.data_root)
+        if data_root:
+            opt.data_root = data_root
+            opt.motion_dir = pjoin(opt.data_root, 'new_joints')
+            opt.text_dir = pjoin(opt.data_root, 'texts')
         opt.save_root = pjoin(abs_base_path, opt.save_root)
         opt.meta_dir = './dataset'
         self.opt = opt
@@ -304,15 +308,15 @@ class HumanML3D(data.Dataset):
 
 # A wrapper class for t2m original dataset for MDM purposes
 class How2Sign(HumanML3D):
-    def __init__(self, mode, datapath='./dataset/how2sign_opt.txt', split="train", **kwargs):
-        super(How2Sign, self).__init__(mode, datapath, split, **kwargs)
+    def __init__(self, mode, datapath='./dataset/how2sign_opt.txt', split="train", data_root=None, **kwargs):
+        super(How2Sign, self).__init__(mode, datapath, split, data_root=data_root, **kwargs)
 
 # A wrapper class for t2m original dataset for MDM purposes
 class Phoenix(HumanML3D):
-    def __init__(self, mode, datapath='./dataset/phoenix_opt.txt', split="train", **kwargs):
-        super(Phoenix, self).__init__(mode, datapath, split, **kwargs)
+    def __init__(self, mode, datapath='./dataset/phoenix_opt.txt', split="train", data_root=None, **kwargs):
+        super(Phoenix, self).__init__(mode, datapath, split, data_root=data_root, **kwargs)
 
 # A wrapper class for youtube sign dataset for MDM purposes
 class YouTubeSign(HumanML3D):
-    def __init__(self, mode, datapath='./dataset/youtube_sign_opt.txt', split="train", **kwargs):
-        super(YouTubeSign, self).__init__(mode, datapath, split, **kwargs)
+    def __init__(self, mode, datapath='./dataset/youtube_sign_opt.txt', split="train", data_root=None, **kwargs):
+        super(YouTubeSign, self).__init__(mode, datapath, split, data_root=data_root, **kwargs)
