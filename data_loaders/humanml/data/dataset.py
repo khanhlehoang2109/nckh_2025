@@ -11,6 +11,7 @@ from data_loaders.humanml.utils.get_opt import get_opt
 
 # import spacy
 MIN_STD_THRESHOLD = 1e-6
+MIN_VAR_THRESHOLD = 1e-8
 
 def collate_fn(batch):
     batch.sort(key=lambda x: x[3], reverse=True)
@@ -302,8 +303,10 @@ class HumanML3D(data.Dataset):
 
         mean = sum_vec / total_frames
         var = sum_sq_vec / total_frames - np.square(mean)
-        var = np.maximum(var, 1e-8)
+        var = np.maximum(var, MIN_VAR_THRESHOLD)
         std = np.sqrt(var)
+        # Use 1.0 (instead of clamping to a tiny std) to avoid exploding normalized values
+        # when a feature is near-constant over the available split.
         std[std < MIN_STD_THRESHOLD] = 1.0
         return mean.astype(np.float32), std.astype(np.float32)
 
