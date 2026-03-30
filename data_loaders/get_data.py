@@ -16,6 +16,10 @@ def get_dataset_class(name):
     elif name == "phoenix":
         from data_loaders.humanml.data.dataset import Phoenix
         return Phoenix
+
+    elif name == "youtube_sign":
+        from data_loaders.humanml.data.dataset import YouTubeSign
+        return YouTubeSign
     
     else:
         raise ValueError(f'Unsupported dataset name [{name}]')

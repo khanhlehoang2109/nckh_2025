@@ -55,6 +55,11 @@ def get_model_args(args, data):
         njoints = 150
         nfeats = 1
 
+    elif args.dataset == 'youtube_sign': # Sign Language Dataset
+        data_rep = 'hml_vec'
+        njoints = 231
+        nfeats = 1
+
     if args.arch == "qna_unet":
         return {'cond_mask_prob': args.cond_mask_prob, 'in_channels': njoints, 'model_channels': 256,
                 'out_channels': njoints, 'num_res_blocks': 1, 'channel_mult': "1", 

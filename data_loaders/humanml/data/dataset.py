@@ -1,6 +1,7 @@
 from torch.utils import data
 import numpy as np
 from os.path import join as pjoin
+import os
 import random
 import codecs as cs
 from tqdm import tqdm
@@ -231,8 +232,15 @@ class HumanML3D(data.Dataset):
 
         elif mode in ['train', 'eval', 'text_only']:
             # used by our models
-            self.mean = np.load(pjoin(opt.data_root, 'Mean.npy'))
-            self.std = np.load(pjoin(opt.data_root, 'Std.npy'))
+            mean_path = pjoin(opt.data_root, 'Mean.npy')
+            std_path = pjoin(opt.data_root, 'Std.npy')
+            if os.path.exists(mean_path) and os.path.exists(std_path):
+                self.mean = np.load(mean_path)
+                self.std = np.load(std_path)
+            else:
+                split_file = pjoin(opt.data_root, f'{split}.txt')
+                self.mean, self.std = self._compute_mean_std_from_split(split_file, opt.motion_dir, opt.dim_pose)
+                print(f"Mean/Std not found in {opt.data_root}, using computed stats from split={split}.")
 
         # if mode == 'eval':
         #     # used by T2M models (including evaluators)
@@ -258,6 +266,42 @@ class HumanML3D(data.Dataset):
     def __len__(self):
         return self.t2m_dataset.__len__()
 
+    @staticmethod
+    def _compute_mean_std_from_split(split_file, motion_dir, dim_pose):
+        id_list = []
+        with cs.open(split_file, 'r') as f:
+            for line in f.readlines():
+                name = line.strip()
+                if name:
+                    id_list.append(name)
+
+        sum_vec = np.zeros((dim_pose,), dtype=np.float64)
+        sum_sq_vec = np.zeros((dim_pose,), dtype=np.float64)
+        total_frames = 0
+
+        for name in id_list:
+            motion_path = pjoin(motion_dir, name + '.npy')
+            if not os.path.exists(motion_path):
+                continue
+            motion = np.load(motion_path)
+            if motion.ndim != 2 or motion.shape[1] != dim_pose:
+                continue
+            sum_vec += motion.sum(axis=0)
+            sum_sq_vec += np.square(motion).sum(axis=0)
+            total_frames += motion.shape[0]
+
+        if total_frames == 0:
+            mean = np.zeros((dim_pose,), dtype=np.float32)
+            std = np.ones((dim_pose,), dtype=np.float32)
+            return mean, std
+
+        mean = sum_vec / total_frames
+        var = sum_sq_vec / total_frames - np.square(mean)
+        var = np.maximum(var, 1e-8)
+        std = np.sqrt(var)
+        std[std < 1e-6] = 1.0
+        return mean.astype(np.float32), std.astype(np.float32)
+
 # A wrapper class for t2m original dataset for MDM purposes
 class How2Sign(HumanML3D):
     def __init__(self, mode, datapath='./dataset/how2sign_opt.txt', split="train", **kwargs):
@@ -267,3 +311,8 @@ class How2Sign(HumanML3D):
 class Phoenix(HumanML3D):
     def __init__(self, mode, datapath='./dataset/phoenix_opt.txt', split="train", **kwargs):
         super(Phoenix, self).__init__(mode, datapath, split, **kwargs)
+
+# A wrapper class for youtube sign dataset for MDM purposes
+class YouTubeSign(HumanML3D):
+    def __init__(self, mode, datapath='./dataset/youtube_sign_opt.txt', split="train", **kwargs):
+        super(YouTubeSign, self).__init__(mode, datapath, split, **kwargs)
