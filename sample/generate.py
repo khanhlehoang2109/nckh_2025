@@ -201,7 +201,10 @@ def done_main():
     print('Loading dataset...')
 
     if is_using_data:
-        data = get_dataset_loader(name=args.dataset, batch_size=args.batch_size, num_frames=n_frames, split=split)
+        data = get_dataset_loader(
+            name=args.dataset, batch_size=args.batch_size, num_frames=n_frames,
+            split=split, data_dir=args.data_dir
+        )
     else:
         data = load_dataset(args, max_frames, n_frames, split=split)
         
@@ -393,7 +396,8 @@ def load_dataset(args, max_frames, n_frames, split):
                               batch_size=args.batch_size,
                               num_frames=max_frames,
                               split=split,
-                              hml_mode='text_only')
+                              hml_mode='text_only',
+                              data_dir=args.data_dir)
     return data
 
 

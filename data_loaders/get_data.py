@@ -16,6 +16,10 @@ def get_dataset_class(name):
     elif name == "phoenix":
         from data_loaders.humanml.data.dataset import Phoenix
         return Phoenix
+
+    elif name == "youtube_sign":
+        from data_loaders.humanml.data.dataset import YouTubeSign
+        return YouTubeSign
     
     else:
         raise ValueError(f'Unsupported dataset name [{name}]')
@@ -35,7 +39,7 @@ def get_collate_fn(name, hml_mode='train'):
 
 
 # def get_dataset(name, num_frames, split='train', hml_mode='train'):
-def get_dataset(name, split='train', hml_mode='train'):
+def get_dataset(name, split='train', hml_mode='train', data_dir=''):
     DATA = get_dataset_class(name)
     # if name in ["humanml", "kit"]:
     #     dataset = DATA(split=split, num_frames=num_frames, mode=hml_mode)
@@ -43,13 +47,16 @@ def get_dataset(name, split='train', hml_mode='train'):
     #     dataset = DATA(split=split, num_frames=num_frames)
 
 
-    dataset = DATA(split=split, mode=hml_mode)
+    if data_dir:
+        dataset = DATA(split=split, mode=hml_mode, data_root=data_dir)
+    else:
+        dataset = DATA(split=split, mode=hml_mode)
 
     return dataset
 
 
-def get_dataset_loader(name, batch_size, num_frames=500, split='train', hml_mode='train'):
-    dataset = get_dataset(name, split, hml_mode)
+def get_dataset_loader(name, batch_size, num_frames=500, split='train', hml_mode='train', data_dir=''):
+    dataset = get_dataset(name, split, hml_mode, data_dir=data_dir)
     collate = get_collate_fn(name, hml_mode)
 
     loader = DataLoader(
