@@ -55,91 +55,65 @@ pip install accelerator
 <!-- Dataset -->
 ## 📚 Dataset
 
-
-<!-- <details>
-  <summary>PHOENIX</summary> -->
-
-<!-- * Dataset for DIFFUSION -->
+### PHOENIX14T
 Download PHOENIX14T
 ```bash
 bash prepare/download_phoenix_dataset.sh
 ```
 
-<!-- Download HOW2SIGN (coming soon) -->
+### YouTube Sign Language (MediaPipe 77 joints)
+Prepare your own YouTube Sign Language dataset using MediaPipe Holistic to extract keypoints.
+Each `.npy` file should have shape `(T, 231)` where `T` is number of frames and `231 = 77 joints × 3 coords`.
 
+The 77 joints layout:
+- **Joints 0–32**: MediaPipe Pose (33 landmarks)
+- **Joints 33–53**: Left Hand (21 landmarks)
+- **Joints 54–74**: Right Hand (21 landmarks)
+- **Joints 75–76**: Extra face reference (2 landmarks)
 
-<!-- * Dataset for PROGRESSIVE
-```bash
-bash prepare/download_phoenix14T_dataset.sh
-``` -->
-<!-- </details> -->
+Each `.txt` caption file must follow the format:
+```
+caption text here#token1 token2 token3#0.0#0.0
+```
 
-
-<!-- <details>
-  <summary>HOW2SIGN (Coming soon)</summary>
-</details> -->
-
-Data structure
+### Data structure
 ```shell
 |- dataset
-    |- <DATA-DIR> # PHOENIX / HOW2SIGN
-        |- new_joints
-            |-..(.npy) # motion file
-        |- texts
-            |-..(.txt) # caption file
-        |- Mean.npy
-        |- Std.npy
-        |- train.txt
+    |- PHOENIX           # Phoenix dataset (50 joints × 3 = 150 dim)
+    |   |- new_joints/
+    |   |   |- sample_001.npy
+    |   |   |- ...
+    |   |- texts/
+    |   |   |- sample_001.txt
+    |   |   |- ...
+    |   |- Mean.npy      # (optional, auto-computed if missing)
+    |   |- Std.npy       # (optional, auto-computed if missing)
+    |   |- train.txt
+    |   |- val.txt
+    |   |- test.txt
+    |
+    |- YOUTUBE_SIGN      # YouTube Sign dataset (77 joints × 3 = 231 dim)
+        |- new_joints/
+        |   |- video_001.npy   # shape: (T, 231)
+        |   |- ...
+        |- texts/
+        |   |- video_001.txt   # format: caption#tokens#0.0#0.0
+        |   |- ...
+        |- Mean.npy      # (optional, auto-computed if missing)
+        |- Std.npy       # (optional, auto-computed if missing)
+        |- train.txt     # list of sample names (without .npy)
         |- val.txt
         |- test.txt
-        |- train_val.txt
-        |- all.txt
 ```
+
+> **Note:** `Mean.npy` and `Std.npy` are optional. If not provided, they will be automatically computed from the training split on first run.
 <!-- Training -->
 ## 🏋️‍♂️ Training
 
-<!-- ### Train Progressive Transformer -->
-
-<!-- ```shell
-# At ProgressiveTransformersSLP folder
-python __main__.py train Configs/Base.yaml
-``` -->
-
-<!-- ### Train MDM
-
-```shell
-python -m train.train_mdm \
---lr 1e-4 \
---overwrite \
---save_interval 1000 \
---num_steps 400000 \
---dataset phoenix \
---resume_checkpoint <latest model path .pt> \ # if resume
---save_dir ./save/phoenix_MDM \
---batch_size 64 \
---diffusion_steps 1000
-``` -->
-
-<!-- ### Train SinMDM
-
-```shell
-python -m train.train_mdm \
---arch qna_unet \
---resume_checkpoint <latest model path .pt> \ # if resume
---lr 1e-4 \
---overwrite \
---save_interval 1000 \
---num_steps 400000 \
---dataset phoenix \
---save_dir ./save/phoenix_SinMDM \
---batch_size 64 \
---diffusion_steps 1000
-``` -->
-
+### Train on Phoenix
 ```shell
 python -m train.train_mdm \
 --arch sam_stunet \
---resume_checkpoint <latest model path .pt> \
 --lr 1e-4 \
 --overwrite \
 --save_interval 1000 \
@@ -150,23 +124,83 @@ python -m train.train_mdm \
 --diffusion_steps 1000
 ```
 
-<!-- ## Evaluate
-
-Evaluate model with Ground Truth comparison
+### Train on YouTube Sign
 ```shell
-python -m sample.generate \
---model_path path/to/<your-model-name>.pt \
---num_repetitions 1 \
---num_samples <number-of-samples-you-want-to-test>
-``` -->
-## 🙆‍♂️ Inference
-Inference model with input text
-```shell
-python -m sample.generate \
---model_path path/to/<your-model-name>.pt \
---num_repetitions 1 \
---text_prompt "Each has a unique feel, and there's no one particular one that's right for everyone, it's a highly personal choice."
+python -m train.train_mdm \
+--arch sam_stunet \
+--lr 1e-4 \
+--overwrite \
+--save_interval 1000 \
+--num_steps 400000 \
+--dataset youtube_sign \
+--save_dir ./save/youtube_sign_OURs \
+--batch_size 64 \
+--diffusion_steps 1000
 ```
+
+To resume training from a checkpoint:
+```shell
+python -m train.train_mdm \
+--arch sam_stunet \
+--resume_checkpoint ./save/youtube_sign_OURs/model000050000.pt \
+--lr 1e-4 \
+--overwrite \
+--save_interval 1000 \
+--num_steps 400000 \
+--dataset youtube_sign \
+--save_dir ./save/youtube_sign_OURs \
+--batch_size 64 \
+--diffusion_steps 1000
+```
+
+## 🔍 Evaluate
+
+Evaluate model with Ground Truth comparison (DTW metric):
+
+### Phoenix
+```shell
+python -m sample.phoenix_generate \
+--model_path ./save/phoenix_OURs/<your-model>.pt \
+--num_repetitions 1 \
+--guidance_param 5.5 \
+--num_samples 10
+```
+
+### YouTube Sign
+```shell
+python -m sample.yt_generate \
+--model_path ./save/youtube_sign_OURs/<your-model>.pt \
+--num_repetitions 1 \
+--guidance_param 5.5 \
+--num_samples 10
+```
+
+## 🙆‍♂️ Inference
+
+Generate sign language motion from text input.
+
+### Phoenix
+```shell
+python -m sample.phoenix_generate \
+--model_path ./save/phoenix_OURs/<your-model>.pt \
+--num_repetitions 1 \
+--guidance_param 5.5 \
+--motion_length 5 \
+--text_prompt "a person signing hello"
+```
+
+### YouTube Sign
+```shell
+python -m sample.yt_generate \
+--model_path ./save/youtube_sign_OURs/<your-model>.pt \
+--num_repetitions 1 \
+--guidance_param 5.5 \
+--motion_length 5 \
+--text_prompt "a person signing hello"
+```
+
+> **⚠️ Important:** Do **NOT** use `sample.generate` for YouTube Sign data — it hardcodes 50-joint reshape and will crash.
+> Use `sample.yt_generate` instead, which supports 77-joint MediaPipe skeleton visualization.
 
 <!-- Acknowledgments -->
 ## 🙇‍♂️ Acknowledgments
