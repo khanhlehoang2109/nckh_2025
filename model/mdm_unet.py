@@ -583,7 +583,7 @@ class MDM_UNetModel(nn.Module):
         print(f"Probability for masking condition : {self.cond_mask_prob}")
         
     def encode_text(self, raw_text):
-        device = next(self.parameters()).device
+        device = self.clip_embed_text.weight.device
         embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(device)
         return embeddings
 
