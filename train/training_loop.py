@@ -94,6 +94,11 @@ class TrainLoop:
 
         self._load_and_sync_parameters()
         
+        if torch.cuda.device_count() > 1:
+            print(f"Using {torch.cuda.device_count()} GPUs for training!")
+            self.model = nn.DataParallel(self.model)
+
+        
         self.mp_trainer = MixedPrecisionTrainer(
             model=self.model,
             use_fp16=self.use_fp16,
@@ -408,6 +413,10 @@ class TrainLoop:
     def save(self, best=False):
         def save_checkpoint(params):
             state_dict = self.mp_trainer.master_params_to_state_dict(params)
+
+            # Strip module. prefix if DataParallel is used
+            if isinstance(self.model, nn.DataParallel):
+                state_dict = {k[7:] if k.startswith('module.') else k: v for k, v in state_dict.items()}
 
             # Do not save CLIP weights
             clip_weights = [e for e in state_dict.keys() if e.startswith('clip_model.') or e.startswith('bert_model.')]

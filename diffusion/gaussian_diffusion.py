@@ -662,7 +662,8 @@ class GaussianDiffusion:
 
         if 'text' in model_kwargs['y'].keys():
             # encoding once instead of each iteration saves lots of time
-            model_kwargs['y']['text_embed'] = model.encode_text(model_kwargs['y']['text'])
+            model_module = model.module if isinstance(model, nn.DataParallel) else model
+            model_kwargs['y']['text_embed'] = model_module.encode_text(model_kwargs['y']['text'])
         
         for i, sample in enumerate(self.p_sample_loop_progressive(
             model,
@@ -738,7 +739,8 @@ class GaussianDiffusion:
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
             if randomize_class and 'y' in model_kwargs:
-                model_kwargs['y'] = th.randint(low=0, high=model.num_classes,
+                model_module = model.module if isinstance(model, nn.DataParallel) else model
+                model_kwargs['y'] = th.randint(low=0, high=model_module.num_classes,
                                                size=model_kwargs['y'].shape,
                                                device=model_kwargs['y'].device)
             with th.no_grad():
@@ -1001,7 +1003,8 @@ class GaussianDiffusion:
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
             if randomize_class and 'y' in model_kwargs:
-                model_kwargs['y'] = th.randint(low=0, high=model.num_classes,
+                model_module = model.module if isinstance(model, nn.DataParallel) else model
+                model_kwargs['y'] = th.randint(low=0, high=model_module.num_classes,
                                                size=model_kwargs['y'].shape,
                                                device=model_kwargs['y'].device)
             with th.no_grad():
@@ -1196,7 +1199,8 @@ class GaussianDiffusion:
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
             if randomize_class and 'y' in model_kwargs:
-                model_kwargs['y'] = th.randint(low=0, high=model.num_classes,
+                model_module = model.module if isinstance(model, nn.DataParallel) else model
+                model_kwargs['y'] = th.randint(low=0, high=model_module.num_classes,
                                                size=model_kwargs['y'].shape,
                                                device=model_kwargs['y'].device)
             with th.no_grad():
@@ -1284,8 +1288,11 @@ class GaussianDiffusion:
 
 
         
-        # enc = model.model._modules['module']
-        enc = model.model
+        # Unwrap DataParallel if used
+        if isinstance(model, nn.DataParallel):
+            enc = model.module.model
+        else:
+            enc = model.model
         mask = model_kwargs['y']['mask']
         get_xyz = lambda sample: enc.rot2xyz(sample, mask=None, pose_rep=enc.pose_rep, translation=enc.translation,
                                              glob=enc.glob,
