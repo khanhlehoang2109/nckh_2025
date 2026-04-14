@@ -39,8 +39,8 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     """
 
     def forward(self, x, emb, up_size=None):
-        x = x.type(torch.cuda.FloatTensor)
-        emb = emb.type(torch.cuda.FloatTensor)
+        x = x.float()
+        emb = emb.float()
 
         for layer in self:
             if isinstance(layer, TimestepBlock):
@@ -676,7 +676,8 @@ class SAM_UNetModel(nn.Module):
 
 
     def encode_text(self, raw_text):
-        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(self.clip_model.device)
+        device = next(self.parameters()).device
+        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(device)
         return embeddings
 
 
@@ -750,8 +751,8 @@ class SAM_UNetModel(nn.Module):
 
 
         h = x.type(self.dtype)  # if y is None else th.cat([x, y], dim=1).type(self.dtype)
-        h = h.type(torch.cuda.FloatTensor)
-        emb = emb.type(torch.cuda.FloatTensor)
+        h = h.float()
+        emb = emb.float()
 
 
         body_h = h[:, :8*3]

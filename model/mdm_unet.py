@@ -39,8 +39,8 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     """
 
     def forward(self, x, emb, up_size=None):
-        x = x.type(torch.cuda.FloatTensor)
-        emb = emb.type(torch.cuda.FloatTensor)
+        x = x.float()
+        emb = emb.float()
         for layer in self:
             if isinstance(layer, TimestepBlock):
                 x, emb_out = layer(x, emb, up_size)
@@ -479,7 +479,7 @@ class MDM_UNetModel(nn.Module):
                 ch = out_ch
                 out_ch = ch
 
-                self.input_blocks.append(TimestepEmbedSequential(*layers)).to('cuda')
+                self.input_blocks.append(TimestepEmbedSequential(*layers))
                 self._feature_size += ch
                 input_block_chans.append(ch)
 
@@ -583,7 +583,8 @@ class MDM_UNetModel(nn.Module):
         print(f"Probability for masking condition : {self.cond_mask_prob}")
         
     def encode_text(self, raw_text):
-        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to('cuda')
+        device = next(self.parameters()).device
+        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(device)
         return embeddings
 
     def emb_text(self, enc_clip, force_mask):
@@ -602,7 +603,7 @@ class MDM_UNetModel(nn.Module):
         for p in clip_model.parameters():
             p.requires_grad = False
 
-        return clip_model.to('cuda')
+        return clip_model
 
     def convert_to_fp16(self):
         """

@@ -54,7 +54,7 @@ class MDM(nn.Module):
         print(f"COND MASK PROB : {self.cond_mask_prob}")
         self.arch = arch
         self.gru_emb_dim = self.latent_dim if self.arch == 'gru' else 0
-        self.input_process = InputProcess(self.data_rep, self.input_feats+self.gru_emb_dim, self.latent_dim).to("cuda")
+        self.input_process = InputProcess(self.data_rep, self.input_feats+self.gru_emb_dim, self.latent_dim)
 
         self.sequence_pos_encoder = PositionalEncoding(self.latent_dim, self.dropout)
         self.emb_trans_dec = emb_trans_dec
@@ -67,12 +67,12 @@ class MDM(nn.Module):
                                                           activation=self.activation)
 
         self.seqTransEncoder = nn.TransformerEncoder(seqTransEncoderLayer,
-                                                     num_layers=self.num_layers).to("cuda")
+                                                     num_layers=self.num_layers)
 
 
 
 
-        self.embed_timestep = TimestepEmbedder(self.latent_dim, self.sequence_pos_encoder).to("cuda")
+        self.embed_timestep = TimestepEmbedder(self.latent_dim, self.sequence_pos_encoder)
 
         self.clip_embed_text = nn.Linear(768, self.latent_dim)
         print('EMBED TEXT')
@@ -81,7 +81,7 @@ class MDM(nn.Module):
         self.clip_model = self.load_and_freeze_clip(clip_version)
 
         self.output_process = OutputProcess(self.data_rep, self.input_feats, 
-                                            self.latent_dim, self.nfeats).to("cuda")
+                                            self.latent_dim, self.nfeats)
 
         # self.rot2xyz = Rotation2xyz(device='cpu', dataset=self.dataset)
 
@@ -97,7 +97,7 @@ class MDM(nn.Module):
         for p in clip_model.parameters():
             p.requires_grad = False
 
-        return clip_model.to('cuda')
+        return clip_model
 
     def mask_cond(self, cond, force_mask):
         bs, d = cond.shape
@@ -115,7 +115,8 @@ class MDM(nn.Module):
 
     
     def encode_text(self, raw_text):
-        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to('cuda')
+        device = next(self.parameters()).device
+        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(device)
         return embeddings
 
     def forward(self, x, timesteps, y=None):

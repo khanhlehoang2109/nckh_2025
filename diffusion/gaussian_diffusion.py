@@ -1255,9 +1255,10 @@ class GaussianDiffusion:
     def create_loss_mask(self, lengths, max_len=500, add_padding=0, end_weights=0):
         lengths = lengths.unsqueeze(-1)
         batch_size = lengths.size(0)
-        mask1 = torch.arange(max_len).expand(max_len).to("cuda") < lengths + add_padding
-        mask2 = torch.arange(max_len).expand(max_len).to("cuda") >= lengths
-        len_mask = torch.arange(max_len).expand(max_len).to("cuda") < lengths
+        device = lengths.device
+        mask1 = torch.arange(max_len).expand(max_len).to(device) < lengths + add_padding
+        mask2 = torch.arange(max_len).expand(max_len).to(device) >= lengths
+        len_mask = torch.arange(max_len).expand(max_len).to(device) < lengths
         mask = mask1 * mask2 * end_weights + len_mask
         return mask.float()
 

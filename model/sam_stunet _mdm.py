@@ -40,8 +40,8 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     """
 
     def forward(self, x, emb):
-        x = x.type(torch.cuda.FloatTensor)
-        emb = emb.type(torch.cuda.FloatTensor)
+        x = x.float()
+        emb = emb.float()
         for layer in self:
             x = layer(x, emb)
         return x, None
@@ -341,7 +341,7 @@ class SAM_UNetModel(nn.Module):
         self.output_process = OutputProcess(ch, out_channels)
 
 
-        self.embed_text = nn.Linear(768, time_embed_dim).to('cuda')
+        self.embed_text = nn.Linear(768, time_embed_dim)
         print('EMBED TEXT')
         print('Loading dangvantuan/vietnamese-embedding...')
         clip_version = 'dangvantuan/vietnamese-embedding'
@@ -364,7 +364,7 @@ class SAM_UNetModel(nn.Module):
         for p in clip_model.parameters():
             p.requires_grad = False
 
-        return clip_model.to('cuda')
+        return clip_model
 
     def mask_cond(self, cond, force_mask=False):
         # print("*******************",cond.device)
@@ -378,7 +378,8 @@ class SAM_UNetModel(nn.Module):
             return cond
 
     def encode_text(self, raw_text):
-        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to('cuda')
+        device = next(self.parameters()).device
+        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(device)
         return embeddings
 
     def forward(self, x, timesteps, y=None):

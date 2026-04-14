@@ -109,7 +109,7 @@ def main(args, data, model, diffusion, epoch):
         # ground_truth = ground_truth.cpu().permute(0, 2, 3, 1).float()
         ground_truth = ground_truth.squeeze(1)
     
-        lengths = model_kwargs['y']['lengths'].to("cuda")
+        lengths = model_kwargs['y']['lengths'].to(dist_util.dev())
         texts = model_kwargs['y']['text']
         model_kwargs['y']['text_embed'] = model.encode_text(model_kwargs['y']['text'])
 
