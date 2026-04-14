@@ -27,7 +27,7 @@ def create_model_and_diffusion(args, data):
 def get_model_args(args, data):
 
     # default args
-    clip_version = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'
+    clip_version = 'dangvantuan/vietnamese-embedding'
     action_emb = 'tensor'
     cond_mode = get_cond_mode(args)
     if hasattr(data.dataset, 'num_actions'):

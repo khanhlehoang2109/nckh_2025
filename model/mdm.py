@@ -76,8 +76,8 @@ class MDM(nn.Module):
 
         self.clip_embed_text = nn.Linear(768, self.latent_dim)
         print('EMBED TEXT')
-        print('Loading CLIP...')
-        clip_version = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'
+        print('Loading dangvantuan/vietnamese-embedding...')
+        clip_version = 'dangvantuan/vietnamese-embedding'
         self.clip_model = self.load_and_freeze_clip(clip_version)
 
         self.output_process = OutputProcess(self.data_rep, self.input_feats, 

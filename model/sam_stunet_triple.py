@@ -664,9 +664,9 @@ class SAM_UNetModel(nn.Module):
         )
 
         print('EMBED TEXT')
-        print('Loading clip-ViT-B-32-multilingual-v1...')
+        print('Loading dangvantuan/vietnamese-embedding...')
 
-        clip_version = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'
+        clip_version = 'dangvantuan/vietnamese-embedding'
         self.clip_model = self.load_and_freeze_clip(clip_version).to(self.device)
         self.clip_embed_text = nn.Linear(768, time_embed_dim)
 
