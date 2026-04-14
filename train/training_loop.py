@@ -318,7 +318,9 @@ class TrainLoop:
             t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
             self.model
             micro_cond["y"]["mode"] = mode
-            # micro_cond["y"]["text_embed"] = self.model.module.encode_text(micro_cond['y']['text'])
+            if "text" in micro_cond["y"]:
+                model_module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
+                micro_cond["y"]["text_embed"] = model_module.encode_text(micro_cond['y']['text'])
             micro_cond["y"]["dtw"] = False
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
