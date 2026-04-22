@@ -72,7 +72,7 @@ class Predictor(BasePredictor):
         self.model, self.diffusion = create_model_and_diffusion(self.args, self.data)
 
         print(f"Loading checkpoints from...")
-        state_dict = torch.load(self.args.model_path, map_location='cpu')
+        state_dict = torch.load(self.args.model_path, map_location='cpu', weights_only=False)
         load_model_wo_clip(self.model, state_dict)
 
         if self.args.guidance_param != 1:

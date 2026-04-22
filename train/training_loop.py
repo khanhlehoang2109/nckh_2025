@@ -157,7 +157,7 @@ class TrainLoop:
                 ), strict=False
             )
 
-            model_state_dict = torch.load(resume_checkpoint, map_location='cpu')
+            model_state_dict = torch.load(resume_checkpoint, map_location='cpu', weights_only=False)
             if "history" in model_state_dict:
                 self.history_dict = model_state_dict["history"]
                 self.resume_epoch = max(self.history_dict.keys()) + 1

@@ -28,11 +28,19 @@ import shutil
 from data_loaders.tensors import collate
 import math
 import cv2
+import torch.nn as nn
 from model.cfg_sampler import ClassifierFreeSampleModel
 
 from numpy import zeros, array, argmin, inf, full
 from math import isinf
 from tqdm import tqdm
+
+
+def unwrap_model(model):
+    """Unwrap DataParallel to get the raw model, works for both 1 and multi-GPU."""
+    if isinstance(model, nn.DataParallel):
+        return model.module
+    return model
 
 
 # ==============================================================================
@@ -514,6 +522,7 @@ def main(args, data, model, diffusion, epoch):
     """
     Evaluate DTW on validation set and save sample videos.
     Called from training_loop.py during training.
+    Works with both single-GPU and DataParallel (multi-GPU) models.
     """
     model.eval()
 
@@ -522,7 +531,9 @@ def main(args, data, model, diffusion, epoch):
 
     fixseed(args.seed)
 
-    model = ClassifierFreeSampleModel(model)
+    # Unwrap DataParallel before wrapping with CFG sampler
+    raw_model = unwrap_model(model)
+    cfg_model = ClassifierFreeSampleModel(raw_model)
 
     all_dtws = []
 
@@ -532,8 +543,8 @@ def main(args, data, model, diffusion, epoch):
 
         sample_fn = diffusion.p_sample_loop
         sample = sample_fn(
-            model,
-            (args.batch_size, model.in_channels, 1, ground_truth.shape[-1]),
+            cfg_model,
+            (args.batch_size, cfg_model.in_channels, 1, ground_truth.shape[-1]),
             clip_denoised=False,
             model_kwargs=model_kwargs,
             skip_timesteps=0,
@@ -553,7 +564,7 @@ def main(args, data, model, diffusion, epoch):
 
         lengths = model_kwargs['y']['lengths'].to(dist_util.dev())
         texts = model_kwargs['y']['text']
-        model_kwargs['y']['text_embed'] = model.encode_text(model_kwargs['y']['text'])
+        model_kwargs['y']['text_embed'] = cfg_model.encode_text(model_kwargs['y']['text'])
 
         batch_dtw = []
         for i, (caption, motion, gt_len, gt_motion) in enumerate(zip(texts, sample, lengths, ground_truth)):
@@ -649,18 +660,29 @@ def done_main():
     model, diffusion = create_model_and_diffusion(args, data)
 
     print(f"Loading checkpoints from [{args.model_path}]...")
-    state_dict = torch.load(args.model_path, map_location='cpu')
-    load_model_wo_clip(model, state_dict)
+    state_dict = torch.load(args.model_path, map_location='cpu', weights_only=False)
+    # Strip 'module.' prefix if saved from DataParallel training
+    cleaned_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+    load_model_wo_clip(model, cleaned_state_dict)
 
-    if args.guidance_param != 1:
-        print(f"*** Using Classifier-Free Guidance with scale={args.guidance_param}")
-        model = ClassifierFreeSampleModel(model)
-    else:
-        print(f"*** No guidance (param={args.guidance_param})")
+    # Optionally use multi-GPU for inference
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        print(f"*** Using {num_gpus} GPUs for inference (DataParallel)")
+        model = nn.DataParallel(model)
 
     model.to(dist_util.dev())
     model.eval()
     model.requires_grad_(False)
+
+    # Wrap with CFG sampler (unwrap DataParallel first if needed)
+    raw_model = unwrap_model(model)
+    if args.guidance_param != 1:
+        print(f"*** Using Classifier-Free Guidance with scale={args.guidance_param}")
+        cfg_model = ClassifierFreeSampleModel(raw_model)
+    else:
+        print(f"*** No guidance (param={args.guidance_param})")
+        cfg_model = raw_model
 
     all_gt_motions = []
 
@@ -690,12 +712,12 @@ def done_main():
         if args.guidance_param != 1:
             model_kwargs['y']['scale'] = torch.ones(args.batch_size, device=dist_util.dev()) * args.guidance_param
 
-        model_kwargs['y']['text_embed'] = model.encode_text(model_kwargs['y']['text'])
+        model_kwargs['y']['text_embed'] = cfg_model.encode_text(model_kwargs['y']['text'])
         sample_fn = diffusion.ddim_sample_loop
 
         sample = sample_fn(
-            model,
-            (args.batch_size, model.in_channels, 1, n_frames),
+            cfg_model,
+            (args.batch_size, cfg_model.in_channels, 1, n_frames),
             clip_denoised=False,
             model_kwargs=model_kwargs,
             skip_timesteps=0,
