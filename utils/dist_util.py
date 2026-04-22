@@ -55,7 +55,7 @@ def load_state_dict(path, **kwargs):
     """
     Load a PyTorch file without redundant fetches across MPI ranks.
     """
-    return th.load(path, **kwargs)
+    return th.load(path, weights_only=False, **kwargs)
 
 
 def sync_params(params):

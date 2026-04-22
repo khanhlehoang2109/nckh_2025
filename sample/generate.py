@@ -214,7 +214,7 @@ def done_main():
     model, diffusion = create_model_and_diffusion(args, data)
 
     print(f"Loading checkpoints from [{args.model_path}]...")
-    state_dict = torch.load(args.model_path, map_location='cpu')
+    state_dict = torch.load(args.model_path, map_location='cpu', weights_only=False)
     load_model_wo_clip(model, state_dict)
 
     args.guidance_param = 1.5
