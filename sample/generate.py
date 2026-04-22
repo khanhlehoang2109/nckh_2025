@@ -217,7 +217,7 @@ def done_main():
     state_dict = torch.load(args.model_path, map_location='cpu')
     load_model_wo_clip(model, state_dict)
 
-    args.guidance_param = 5.
+    args.guidance_param = 1.5
     if args.guidance_param != 1:
         print(f"********************************* USE CLASSIFIER with guidance_param={args.guidance_param}")
         model = ClassifierFreeSampleModel(model)   # wrapping model with the classifier-free sampler
