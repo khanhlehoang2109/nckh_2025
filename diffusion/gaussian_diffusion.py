@@ -13,6 +13,7 @@ import math
 import numpy as np
 import torch
 import torch as th
+import torch.nn as nn
 from copy import deepcopy
 from diffusion.nn import mean_flat, sum_flat
 from diffusion.losses import normal_kl, discretized_gaussian_log_likelihood
@@ -662,7 +663,8 @@ class GaussianDiffusion:
 
         if 'text' in model_kwargs['y'].keys():
             # encoding once instead of each iteration saves lots of time
-            model_kwargs['y']['text_embed'] = model.encode_text(model_kwargs['y']['text'])
+            model_module = model.module if isinstance(model, nn.DataParallel) else model
+            model_kwargs['y']['text_embed'] = model_module.encode_text(model_kwargs['y']['text'])
         
         for i, sample in enumerate(self.p_sample_loop_progressive(
             model,
@@ -738,7 +740,8 @@ class GaussianDiffusion:
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
             if randomize_class and 'y' in model_kwargs:
-                model_kwargs['y'] = th.randint(low=0, high=model.num_classes,
+                model_module = model.module if isinstance(model, nn.DataParallel) else model
+                model_kwargs['y'] = th.randint(low=0, high=model_module.num_classes,
                                                size=model_kwargs['y'].shape,
                                                device=model_kwargs['y'].device)
             with th.no_grad():
@@ -1001,7 +1004,8 @@ class GaussianDiffusion:
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
             if randomize_class and 'y' in model_kwargs:
-                model_kwargs['y'] = th.randint(low=0, high=model.num_classes,
+                model_module = model.module if isinstance(model, nn.DataParallel) else model
+                model_kwargs['y'] = th.randint(low=0, high=model_module.num_classes,
                                                size=model_kwargs['y'].shape,
                                                device=model_kwargs['y'].device)
             with th.no_grad():
@@ -1196,7 +1200,8 @@ class GaussianDiffusion:
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
             if randomize_class and 'y' in model_kwargs:
-                model_kwargs['y'] = th.randint(low=0, high=model.num_classes,
+                model_module = model.module if isinstance(model, nn.DataParallel) else model
+                model_kwargs['y'] = th.randint(low=0, high=model_module.num_classes,
                                                size=model_kwargs['y'].shape,
                                                device=model_kwargs['y'].device)
             with th.no_grad():
@@ -1255,9 +1260,10 @@ class GaussianDiffusion:
     def create_loss_mask(self, lengths, max_len=500, add_padding=0, end_weights=0):
         lengths = lengths.unsqueeze(-1)
         batch_size = lengths.size(0)
-        mask1 = torch.arange(max_len).expand(max_len).to("cuda") < lengths + add_padding
-        mask2 = torch.arange(max_len).expand(max_len).to("cuda") >= lengths
-        len_mask = torch.arange(max_len).expand(max_len).to("cuda") < lengths
+        device = lengths.device
+        mask1 = torch.arange(max_len).expand(max_len).to(device) < lengths + add_padding
+        mask2 = torch.arange(max_len).expand(max_len).to(device) >= lengths
+        len_mask = torch.arange(max_len).expand(max_len).to(device) < lengths
         mask = mask1 * mask2 * end_weights + len_mask
         return mask.float()
 
@@ -1283,8 +1289,11 @@ class GaussianDiffusion:
 
 
         
-        # enc = model.model._modules['module']
-        enc = model.model
+        # Unwrap DataParallel if used
+        if isinstance(model, nn.DataParallel):
+            enc = model.module.model
+        else:
+            enc = model.model
         mask = model_kwargs['y']['mask']
         get_xyz = lambda sample: enc.rot2xyz(sample, mask=None, pose_rep=enc.pose_rep, translation=enc.translation,
                                              glob=enc.glob,

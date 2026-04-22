@@ -39,8 +39,8 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     """
 
     def forward(self, x, emb, up_size=None):
-        x = x.type(torch.cuda.FloatTensor)
-        emb = emb.type(torch.cuda.FloatTensor)
+        x = x.float()
+        emb = emb.float()
         for layer in self:
             if isinstance(layer, TimestepBlock):
                 x, emb_out = layer(x, emb, up_size)
@@ -425,7 +425,7 @@ class SAM_UNetModel(nn.Module):
                 ch = out_ch
                 out_ch = ch // 2
 
-                self.input_blocks.append(TimestepEmbedSequential(*layers)).to('cuda')
+                self.input_blocks.append(TimestepEmbedSequential(*layers))
                 self._feature_size += ch
                 input_block_chans.append(ch)
 
@@ -513,11 +513,11 @@ class SAM_UNetModel(nn.Module):
         )
 
         print('EMBED TEXT')
-        print('Loading clip-ViT-B-32-multilingual-v1...')
+        print('Loading dangvantuan/vietnamese-embedding...')
         
         
 
-        clip_version = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'
+        clip_version = 'dangvantuan/vietnamese-embedding'
         self.clip_model = self.load_and_freeze_clip(clip_version)
         self.clip_embed_text = nn.Linear(768, time_embed_dim)
         
@@ -527,7 +527,8 @@ class SAM_UNetModel(nn.Module):
         
 
     def encode_text(self, raw_text):
-        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to('cuda')
+        device = self.clip_embed_text.weight.device
+        embeddings = torch.tensor(self.clip_model.encode(raw_text)).float().to(device)
         return embeddings
 
 
@@ -547,7 +548,7 @@ class SAM_UNetModel(nn.Module):
         for p in clip_model.parameters():
             p.requires_grad = False
 
-        return clip_model.to('cuda')
+        return clip_model
 
     def convert_to_fp16(self):
         """
