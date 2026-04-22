@@ -28,6 +28,11 @@ import shutil
 from data_loaders.tensors import collate
 import math
 import cv2
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 import torch.nn as nn
 from model.cfg_sampler import ClassifierFreeSampleModel
 
@@ -381,48 +386,127 @@ def draw_joint_dot(im, joint, c=(0, 0, 0), radius=2):
         cv2.circle(im, (int(joint[0]), int(joint[1])), radius, c, -1)
 
 
-def draw_frame_2D(frame, joints_2d):
+def put_text_unicode(frame, text, position, color=(0, 0, 255), font_size=20):
+    """
+    Render Unicode text (Vietnamese) on an OpenCV frame.
+    Uses PIL if available, falls back to OpenCV putText.
+    """
+    if HAS_PIL:
+        # Convert BGR (OpenCV) → RGB (PIL)
+        img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img_pil)
+        try:
+            # Try common fonts that support Vietnamese
+            for font_name in [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+                "C:/Windows/Fonts/arial.ttf",
+                "C:/Windows/Fonts/segoeui.ttf",
+            ]:
+                try:
+                    font = ImageFont.truetype(font_name, font_size)
+                    break
+                except (IOError, OSError):
+                    continue
+            else:
+                font = ImageFont.load_default()
+        except Exception:
+            font = ImageFont.load_default()
+
+        # PIL uses RGB color order
+        rgb_color = (color[2], color[1], color[0]) if len(color) == 3 else color
+        draw.text(position, text, font=font, fill=rgb_color)
+        # Convert RGB (PIL) → BGR (OpenCV)
+        frame = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+    else:
+        # Fallback: OpenCV (no Unicode support)
+        cv2.putText(frame, text, position, cv2.FONT_HERSHEY_SIMPLEX,
+                    font_size / 30.0, color, 1)
+    return frame
+
+
+def draw_frame_2D(frame, joints_2d, canvas_size=650):
     """
     Draw a full skeleton frame with 77 MediaPipe joints.
+    Auto-scales skeleton to fit ~70% of the canvas.
     joints_2d: (NUM_JOINTS, 2) array of 2D positions
     """
     # Separator line
-    draw_line(frame, [1, 650], [1, 1], c=(0, 0, 0), t=1, width=1)
+    draw_line(frame, [1, canvas_size], [1, 1], c=(0, 0, 0), t=1, width=1)
 
-    # Center offset
-    offset = np.array([350, 250])
+    # --- Auto-scale: normalize joints to [0,1] then scale to canvas ---
+    valid_mask = np.all(np.abs(joints_2d) > 1e-6, axis=1)  # filter zero joints
+    if valid_mask.sum() < 2:
+        return  # skip if too few valid joints
 
-    # Scale joints for display
-    joints = joints_2d * 10 * 12 * 2
-    joints = joints + np.ones((NUM_JOINTS, 2)) * offset
+    valid_joints = joints_2d[valid_mask]
+    j_min = valid_joints.min(axis=0)
+    j_max = valid_joints.max(axis=0)
+    j_range = j_max - j_min
+    j_range[j_range < 1e-6] = 1.0  # prevent division by zero
+
+    # Normalize to [0, 1]
+    joints_norm = (joints_2d - j_min) / j_range
+
+    # Scale to fit 70% of canvas, centered
+    margin = canvas_size * 0.15
+    usable = canvas_size - 2 * margin
+    # Maintain aspect ratio
+    scale = usable / max(j_range[0], j_range[1]) * max(j_range[0], j_range[1]) / j_range
+    scale_uniform = min(usable / j_range[0], usable / j_range[1])
+    joints = joints_2d * scale_uniform
+    # Center
+    scaled_min = valid_joints.min(axis=0) * scale_uniform
+    scaled_max = valid_joints.max(axis=0) * scale_uniform
+    offset_x = (canvas_size - (scaled_max[0] - scaled_min[0])) / 2 - scaled_min[0]
+    offset_y = (canvas_size - (scaled_max[1] - scaled_min[1])) / 2 - scaled_min[1]
+    # Shift up a bit to leave room for text at bottom
+    offset_y -= 30
+    joints = joints + np.array([offset_x, offset_y])
 
     # Get skeleton bones
     skeleton = getSkeletalModelStructure()
 
-    # Draw all bones
+    # --- Draw all bones (thicker for pose, thinner for hands) ---
     for (start_idx, end_idx, color) in skeleton:
         if start_idx < len(joints) and end_idx < len(joints):
+            # Pose bones: width 2, Hand bones: width 1
+            bone_width = 2 if (start_idx < LHAND_START and end_idx < LHAND_START) else 1
             draw_line(frame,
                       [joints[start_idx][0], joints[start_idx][1]],
                       [joints[end_idx][0], joints[end_idx][1]],
-                      c=color, t=1, width=1)
+                      c=color, t=1, width=bone_width)
 
-    # Draw joint dots for key positions
+    # --- Draw joint dots ---
     # Pose joints (bigger dots for important joints)
     key_pose_joints = [0, 11, 12, 13, 14, 15, 16, 23, 24]  # nose, shoulders, elbows, wrists, hips
     for idx in key_pose_joints:
         if idx < len(joints):
-            draw_joint_dot(frame, joints[idx], c=(0, 0, 0), radius=3)
+            draw_joint_dot(frame, joints[idx], c=(0, 0, 0), radius=4)
 
-    # Hand fingertips (small dots)
+    # All hand joints (small dots)
+    for idx in range(LHAND_START, LHAND_END):
+        if idx < len(joints):
+            draw_joint_dot(frame, joints[idx], c=(200, 50, 0), radius=2)
+    for idx in range(RHAND_START, RHAND_END):
+        if idx < len(joints):
+            draw_joint_dot(frame, joints[idx], c=(0, 50, 200), radius=2)
+
+    # Hand fingertips (larger dots)
     fingertip_offsets = [4, 8, 12, 16, 20]
     for tip_off in fingertip_offsets:
         lh_idx = LHAND_START + tip_off
         rh_idx = RHAND_START + tip_off
         if lh_idx < len(joints):
-            draw_joint_dot(frame, joints[lh_idx], c=(200, 0, 0), radius=2)
+            draw_joint_dot(frame, joints[lh_idx], c=(255, 0, 0), radius=3)
         if rh_idx < len(joints):
-            draw_joint_dot(frame, joints[rh_idx], c=(0, 0, 200), radius=2)
+            draw_joint_dot(frame, joints[rh_idx], c=(0, 0, 255), radius=3)
+
+    # Face joints
+    for idx in range(FACE_START, FACE_END):
+        if idx < len(joints):
+            draw_joint_dot(frame, joints[idx], c=(0, 200, 0), radius=2)
 
 
 def plot_video(joints, file_path, video_name, references=None, skip_frames=1, sequence_ID=None):
@@ -453,14 +537,12 @@ def plot_video(joints, file_path, video_name, references=None, skip_frames=1, se
         frame_joints_2d = np.reshape(frame_joints, (NUM_JOINTS, 3))[:, :2]
         draw_frame_2D(frame, frame_joints_2d)
 
-        # Overlay text
+        # Overlay text (with Unicode support for Vietnamese)
         if sequence_ID is not None:
             seq_text = "Predicted : " + str(sequence_ID).split("/")[-1]
-            # Truncate long text
-            if len(seq_text) > 60:
-                seq_text = seq_text[:57] + "..."
-            cv2.putText(frame, seq_text, (30, 620), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                        (0, 0, 255), 1)
+            if len(seq_text) > 80:
+                seq_text = seq_text[:77] + "..."
+            frame = put_text_unicode(frame, seq_text, (20, 610), color=(220, 30, 30), font_size=18)
 
         # ---- Ground truth frame ----
         if references is not None and j_idx < len(references):
@@ -470,8 +552,7 @@ def plot_video(joints, file_path, video_name, references=None, skip_frames=1, se
             ref_joints_2d = np.reshape(ref_joints, (NUM_JOINTS, 3))[:, :2]
             draw_frame_2D(ref_frame, ref_joints_2d)
 
-            cv2.putText(ref_frame, "Ground Truth", (250, 620), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                        (0, 0, 0), 2)
+            ref_frame = put_text_unicode(ref_frame, "Ground Truth", (250, 610), color=(0, 0, 0), font_size=22)
 
             frame = np.concatenate((frame, ref_frame), axis=1)
 
