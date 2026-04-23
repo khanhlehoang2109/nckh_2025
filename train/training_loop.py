@@ -109,7 +109,7 @@ class TrainLoop:
             self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
         )
         
-        self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(self.opt, gamma=0.99998)
+        self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(self.opt, gamma=0.9999)
 
         
         print(f"ExponentialLR ...")

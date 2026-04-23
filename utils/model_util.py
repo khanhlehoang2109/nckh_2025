@@ -71,7 +71,7 @@ def get_model_args(args, data):
         return {'cond_mask_prob': args.cond_mask_prob, 'in_channels': njoints, 'model_channels': 1024,
                 'out_channels': njoints, 'num_res_blocks': 2, 'channel_mult': "1", 
                 'dims': 1, 'use_checkpoint': False, 'num_heads': 4, 'use_scale_shift_norm': True, 
-                'dropout': 0.5,'resblock_updown': True, 'use_fp16': True, 'padding': 1,
+                'dropout': 0.3,'resblock_updown': True, 'use_fp16': True, 'padding': 1,
                 'padding_mode': 'zeros'} # sam_stunet base
 
     elif args.arch == "trans_enc":
