@@ -179,7 +179,7 @@ def done_main():
         print(f"{'='*60}")
         for i in range(num_gpus):
             gpu_name = torch.cuda.get_device_name(i)
-            gpu_mem = torch.cuda.get_device_properties(i).total_mem / (1024**3)
+            gpu_mem = torch.cuda.get_device_properties(i).total_memory / (1024**3)
             print(f"  GPU {i}: {gpu_name} | {gpu_mem:.1f} GB")
         print(f"{'='*60}")
         if num_gpus > 1:
